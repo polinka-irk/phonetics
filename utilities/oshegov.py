@@ -3,7 +3,7 @@ import sys,os,codecs
 if os.name=='nt':
     sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 import pickle
-i=open("OZHEGOV-utf-8.TXT", "rb")
+i=open("../data/OZHEGOV-utf-8.TXT", "rb")
 key_s=i.readline()
 key_name={}
 key_s=key_s.strip()
@@ -28,13 +28,13 @@ for l in i:
         w[j]=v
     ozh[word]=w
 
-out=open("ozhegov.dic", "wb")
+out=open("../data/ozhegov.dic", "wb")
 pickle.dump(ozh, out)
 
 print ("привет1", len(ozh))
 print (ozh['курица'])
 
-ii=open("ozhegov.dic", "rb")
+ii=open("../data/ozhegov.dic", "rb")
 ozh=pickle.load(ii)
 ozh['аббат']
 
