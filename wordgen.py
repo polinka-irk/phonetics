@@ -101,68 +101,71 @@ class REMistaker (Mistaker):
 	th="яеёюиь"
 	consonants="бвгджзклмнпрстфхцчшщж"
 	regexp="[{c}]([{d}])[{c}][{t}]"
-
 	def __init__(self, d=_mark, **kwargs):
 		Mistaker.__init__(self, d=d, **kwargs)
-		self.expr=re.compile(
-			self.__class__.regexp.format(
-				c=self.__class__.consonants,
-				d=''.join(self.d.keys()),
-				t=self.__class__.th,
-				v=self.__class__.vovels
-			)
-		)
+		res=self.__class__.regexp
+		if type(res) != type([]):
+			res=[res]
+		self.exprs=[]
+		for regexp in res:
+			fregexp=regexp.format(
+					c=self.__class__.consonants,
+					d=''.join(self.d.keys()),
+					t=self.__class__.th,
+					v=self.__class__.vovels
+				)
+			cregexpr=re.compile(fregexp)
+			self.exprs.append(cregexpr)
 
-	def gen(self, w):
-		for m in self.expr.finditer(w):
-			let=m.group(1)
+	def gen(self, w, cregexpr=None):
+		if cregexpr == None:
+			for cregexpr in self.exprs:
+				yield from self.gen(w, cregexpr)
+			return
+		groups=cregexpr.groups
+		def rec_gen(w, m, gro):
+			let=m.group(gro)
 			sub=self.d[let]
-			nw=w[:m.start(1)]+sub+w[m.end(1):]
-			yield nw
+			if not type(sub) in (type([]), type((0,0))):
+				sub=[sub]
+			for sb in sub:
+				nw=w[:m.start(gro)]+sb+w[m.end(gro):]
+				yield nw
+				if gro<groups:
+					yield from rec_gen(nw, m, gro+1)
+					yield from self.gen_sup_gen(nw, False)
+
+		for m in cregexpr.finditer(w):
+			g_num=1
+			while (g_num<=groups):
+				yield from rec_gen(w, m, g_num)
+				g_num+=1
 		yield w
+		yield from self.gen_sup_gen(w, False)
+
 
 class SH_REMistaker (REMistaker):
 	consonants="хцчшщж"
 	regexp="[{c}]([{d}])"
 
+class OA_REMistaker(REMistaker):
+	regexp="[{c}]([{d}])[{c}]([{d}])[{c}]"
 
 class Silenter_REMistaker (REMistaker):
 	consonants="бвгджз"
 	#consonants_lo="кпстфш"
 	regexp="([{d}])([{d}])ь?$"
 
-	def gen(self, w):
-		def rec_gen(w, m, gro):
-			let=m.group(gro)
-			sub=self.d[let]
-			for sb in [sub]:
-				nw=w[:m.start(gro)]+sb+w[m.end(gro):]
-				if gro==2:
-					yield nw
-				elif gro<2:
-					yield from rec_gen(nw, m, gro+1)
+class VDrop_REMistaker(REMistaker):
+	regexp="л?([{d}])ств"
 
-		for m in self.expr.finditer(w):
-			yield from rec_gen(w, m, 1)
-		yield w
-
-class OA_REMistaker(REMistaker):
-	regexp="[{c}]([{d}])[{c}]([{d}])[{c}]"
-
-	def gen(self, w):
-		def rec_gen(w, m, gro):
-			let=m.group(gro)
-			sub=self.d[let]
-			for sb in sub:
-				nw=w[:m.start(gro)]+sb+w[m.end(gro):]
-				yield nw
-				if gro<2:
-					yield from rec_gen(nw, m, gro+1)
-
-		for m in self.expr.finditer(w):
-			yield from rec_gen(w, m, 1)
-			yield from rec_gen(w, m, 2)
-		yield w
+class DDrop_REMistaker(REMistaker):
+	# здн, рдц, ндск, - ндс
+	regexp=[
+		"з([{d}])н",
+		"р([{d}])ц",
+		"н([{d}])ск?",
+		]
 
 class Silenter (Mistaker):
 	def __init__(self):
@@ -226,16 +229,22 @@ DEFAULT_GENS=[
 	Louder1(),
 	Louder2(),
 	OA_REMistaker({"о":["а","_"]}),
+	VDrop_REMistaker({"в":["ф","_"]}),
+	DDrop_REMistaker({"д":["т","_"]}),
 	REMistaker({"а":"и","я":"и","ы":"и"}),
 	SH_REMistaker({"а":"и","о":"е"}),
 	Silenter_REMistaker(d={u'б':u'п', u'г':u'к', u'в':u'ф',
 		    u'д':u'т',u'з':u'c', u'ж':u'ш'}),
 ]
 
+#DEFAULT_GENS=[
+#	DDrop_REMistaker({"д":["т","_"]}),
+#]
+
 def test1():
 	genlist=DEFAULT_GENS
-	tw=[u"неясность", u"новгород", u"гвоздь",
-	"часы",u"проволока",u"мясной",u"бульон", u"дрозд", u"обклеить"]
+	#tw=[u"неясность", u"новгород", u"гвоздь", "часы",u"проволока",u"мясной",u"бульон", u"дрозд", u"обклеить", u"здравствуй"]
+	tw=[u"здравствуй", "явства", "голландский"]
 	#tw=[u"неясность", u"новгород", u"гвоздь",
 	#	u"бульон",u"окно", u"бесшумный", u"косьба",
 	#	u"часы",u"проволока",u"мясной",u"безынициативный",		]
