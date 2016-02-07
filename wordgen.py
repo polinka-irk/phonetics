@@ -4,6 +4,7 @@ import pickle
 import sys,os,codecs
 import re
 import pprint
+import requests
 if os.name=='nt':
     sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
@@ -47,6 +48,9 @@ class Mistaker(object):
 		else:
 			return False
 
+	def done(self):
+		pass
+
 	def gen(self, w, sq_no=0, sidx=0):
 		if sq_no>=self.l:
 			yield from self.gen_sup_gen(w, False)
@@ -79,6 +83,11 @@ class Mistaker(object):
 		else:
 			yield from self.sup.gen(w)
 
+	def done_all(self):
+		if self.sup != None:
+			self.sup.done_all()
+		self.done()
+
 	def as_set(self, w, debug=False):
 		"""
 		"""
@@ -93,6 +102,61 @@ class Mistaker(object):
 
 	def __call__(self, *args, **kwargs):
 		return self.gen(*args, **kwargs)
+
+class HTTPMistaker (Mistaker):
+	def __init__(self, url):
+		Mistaker.__init__(self)
+		self.url=url
+
+	def gen_mistakes(self, w):
+		req=requests.get(self.url, params = {'words' : w.encode('cp1251')})
+		text=req.content.decode('cp1251')
+		t1=text.split("</textarea>")[0].split('rows="20">')[-1]
+		for l in t1.split("\n"):
+			yield l.strip()
+
+	def gen(self, w):
+		yield from self.gen_mistakes(w)
+		yield from self.gen_sup_gen(w, False)
+
+class CacheMistaker(Mistaker):
+	def __init__(self, name):
+		Mistaker.__init__(self)
+		self.name=name
+		self.c={}
+		self.miss=False
+		self.fname=self.name+".cache"
+		self.init()
+
+	def init(self):
+		try:
+			self.c=pickle.load(open(self.fname,"rb"))
+		except IOError:
+			self.c={}
+
+	def done(self):
+		if self.miss:
+			f=open(self.fname,"wb")
+			pickle.dump(self.c, f)
+			f.flush()
+			f.close()
+			self.miss=False
+
+	def __del__(self):
+		self.done()
+
+	def gen(self, w):
+		if w in self.c:
+			vals=self.c[w]
+			for v in vals:
+				yield v
+		else:
+			self.miss=True
+			vals=[]
+			for v in self.gen_sup_gen(w, False):
+				vals.append(v)
+				yield v
+			self.c[w]=vals
 
 
 class REMistaker (Mistaker):
@@ -237,9 +301,10 @@ DEFAULT_GENS=[
 		    u'д':u'т',u'з':u'c', u'ж':u'ш'}),
 ]
 
-#DEFAULT_GENS=[
-#	DDrop_REMistaker({"д":["т","_"]}),
-#]
+DEFAULT_GENS=[
+	CacheMistaker(name="url"),
+	HTTPMistaker(url="http://4seo.biz/tools/12/"),
+]
 
 def test1():
 	genlist=DEFAULT_GENS
@@ -283,7 +348,7 @@ def test1():
 		"""
 		pprint.pprint (start.as_set(r))
 
-
+	start.done_all()
 
 	"""
 	csvf,f=to_csv (w,g.as_set(w), "a.csv", noclose=True)
