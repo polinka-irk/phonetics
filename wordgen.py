@@ -189,7 +189,13 @@ class REMistaker (Mistaker):
 		groups=cregexpr.groups
 		def rec_gen(w, m, gro):
 			let=m.group(gro)
-			sub=self.d[let]
+			if 'repl' in self.__class__.__export__:
+				try:
+					sub=self.d[let]
+				except KeyError:
+					sub=self.repl
+			else:
+				sub=self.d[let]
 			if not type(sub) in (type([]), type((0,0))):
 				sub=[sub]
 			for sb in sub:
@@ -198,7 +204,6 @@ class REMistaker (Mistaker):
 				if gro<groups:
 					yield from rec_gen(nw, m, gro+1)
 					yield from self.gen_sup_gen(nw, False)
-
 		for m in cregexpr.finditer(w):
 			g_num=1
 			while (g_num<=groups):
@@ -209,11 +214,16 @@ class REMistaker (Mistaker):
 
 
 class SH_REMistaker (REMistaker):
+	#
 	consonants="хцчшщж"
 	regexp="[{c}]([{d}])"
 
 class OA_REMistaker(REMistaker):
+	# о - о на конце слова , о-е -льон, ньон....- провлка,
 	regexp="[{c}]([{d}])[{c}]([{d}])[{c}]"
+
+class OJ_REMistaker(REMistaker): #НЕ РАБОТАЕТ
+	regexp="([{d}])ва"
 
 class Silenter_REMistaker (REMistaker):
 	consonants="бвгджз"
@@ -230,6 +240,53 @@ class DDrop_REMistaker(REMistaker):
 		"р([{d}])ц",
 		"н([{d}])ск?",
 		]
+class TDrop_REMistaker(REMistaker):
+	# -стн, -стл, -нтск, -стск, -нтс, -нтк
+	regexp=[
+		"c([{d}])н",
+		"c([{d}])л",
+		"с([{d}])ск",
+		"н([{d}])с?к?",
+		]
+class LDrop_REMistaker(REMistaker):
+	# -лнц
+	regexp="([{d}])нц"
+
+class CA_REMistaker(REMistaker):
+	# -ться - тся , -тск на ца
+	__export__=('repl',)
+	regexp=["(ть[{d}]я)",
+			"(т[{d}]я)",
+			"(т[{d}]к)",
+			]
+
+class GV_REMistaker(REMistaker):
+	#-ого, -его на -ово - ево
+	regexp="[ео]([{d}])о"
+
+class GH_REMistaker(REMistaker):
+	regexp="([{d}])к"
+
+class Z_REMistaker(REMistaker):
+	# з-, раз- без- из-
+	regexp=["^и?([{d}])",
+			"ра([{d}])",
+			"бе([{d}])"
+			]
+class GG_REMistaker(REMistaker):
+	# сж, зж - жж
+	regexp="([{d}])ж"
+
+class HH_REMistaker(REMistaker):
+	consonants="шч"
+	regexp="([{d}])[{c}]"
+
+class CH_REMistaker(REMistaker):
+	regexp="([{d}])ч"
+
+class SCH_REMistaker(REMistaker):
+# сч----щ, сч----шщ
+	pass
 
 class Silenter (Mistaker):
 	def __init__(self):
@@ -246,7 +303,7 @@ class Silenter (Mistaker):
 		except IndexError:
 			return False
 
-class Louder1(Silenter): # оглушение последней буквы на конце слова
+class Louder1(Silenter): # озвончение глухой перед звонкой
 	def __init__(self):
 		Mistaker.__init__(self, {u'п':u'б', u'к':u'г', u'ф':u'в', u'т':u'д',u'с':u'з', u'ш':u'ж'})
 		self.loud=self.d.keys()
@@ -254,7 +311,7 @@ class Louder1(Silenter): # оглушение последней буквы на
 		self.silent.remove(u'в')
 		self.end=u'п'
 
-class Louder2(Silenter): # озвончение
+class Louder2(Silenter): # озвончение глухой
 	def __init__(self):
 		Mistaker.__init__(self, {u'пь':u'бь', u'кь':u'гь', u'фь':u'вь', u'ть':u'дь',u'сь':u'зь'})
 		self.loud=self.d.keys()
@@ -283,8 +340,9 @@ def to_csv(orig, tab, filename, noclose=False):
 	return csvf,f
 
 oae_w0={ u'же':u'жи', u'ше':u'ши', u'цо':u'ца',
-		 u'ча':u'чи', u'че':u'чи', u'чя':u'чи', u'ща':u'щи', u'ще':u'щи'}
-oe_dict={u"о":u"а", u"е":u"и"} # о - о на конце слова , о-е -льон, ньон....- провлка,
+		 u'ча':u'чи', u'че':u'чи', u'чя':u'чи',
+		 u'ща':u'щи', u'ще':u'щи'}
+oe_dict={u"о":u"а", u"ё":u"о", u"е":u"и"}
 
 DEFAULT_GENS=[
 	Mistaker(oae_w0),
@@ -293,26 +351,45 @@ DEFAULT_GENS=[
 	Louder1(),
 	Louder2(),
 	OA_REMistaker({"о":["а","_"]}),
+	OJ_REMistaker({"ы":"о","о":"ы"}),
 	VDrop_REMistaker({"в":["ф","_"]}),
 	DDrop_REMistaker({"д":["т","_"]}),
+	TDrop_REMistaker({"т":["т","_"]}),
+	LDrop_REMistaker({"л":["л","_"]}),
+	GV_REMistaker({"г":"в"}),
+	GH_REMistaker({"г":"х"}),
+	Z_REMistaker({"з":"с"}),
+	GG_REMistaker({"з":"ж","с":"ж"}),
+	HH_REMistaker({"з":"ш","с":"ш"}),
+	CH_REMistaker({"з":"щ","с":" щ"}),
+	SCH_REMistaker({"з":"щ","с":" щ"}),
+	CA_REMistaker({"с":"с"}, repl="ца"),# {"ться":"ца", "тся":"ца" ,"тск":"ца"}
 	REMistaker({"а":"и","я":"и","ы":"и"}),
+
 	SH_REMistaker({"а":"и","о":"е"}),
 	Silenter_REMistaker(d={u'б':u'п', u'г':u'к', u'в':u'ф',
 		    u'д':u'т',u'з':u'c', u'ж':u'ш'}),
-]
-
-DEFAULT_GENS=[
-	CacheMistaker(name="url"),
-	HTTPMistaker(url="http://4seo.biz/tools/12/"),
-]
+	]
+#DEFAULT_GENS=[
+#	CacheMistaker(name="url"),
+#	HTTPMistaker(url="http://4seo.biz/tools/12/"),
+#	CA_REMistaker({"с":"с"}, repl="ца"),# {"ться":"ца", "тся":"ца" ,"тск":"ца"}
+#]
 
 def test1():
 	genlist=DEFAULT_GENS
 	#tw=[u"неясность", u"новгород", u"гвоздь", "часы",u"проволока",u"мясной",u"бульон", u"дрозд", u"обклеить", u"здравствуй"]
-	tw=[u"здравствуй", "явства", "голландский"]
+	tw=[
+	u"визжать", "расщепить", "счастье", "грузчик","сжег",
+	"грузчик","бездна",
+	"разбежаться","избежать", "безопасность",
+	"мужчина",
+	"твоего",
+	"здесь", "пробывать","мягкий", "бездна", "аспирантка","моего", "явства", "солнце","праздник", "проволока","гиганстский","бояться"
+	]
 	#tw=[u"неясность", u"новгород", u"гвоздь",
 	#	u"бульон",u"окно", u"бесшумный", u"косьба",
-	#	u"часы",u"проволока",u"мясной",u"безынициативный",		]
+	#	u"часы",,u"мясной",u"безынициативный",		]
 	gl=genlist[:]
 	start=genlist[0]
 	gl.reverse()
