@@ -120,27 +120,35 @@ class HTTPMistaker (Mistaker):
 		yield from self.gen_sup_gen(w, False)
 
 class CacheMistaker(Mistaker):
-	def __init__(self, name):
-		Mistaker.__init__(self)
+	def __init__(self, name, dump_hits=1000):
 		self.name=name
-		self.c={}
-		self.miss=False
 		self.fname=self.name+".cache"
+		self.dump_hits=dump_hits
+		Mistaker.__init__(self)
+		self.c={}
+		self.miss=0
 		self.init()
 
 	def init(self):
+		print ("Loading cash!")
 		try:
 			self.c=pickle.load(open(self.fname,"rb"))
+			print ("Done.")
 		except IOError:
 			self.c={}
+			print ("Failed.")
 
 	def done(self):
+		self.dump()
+	def dump(self):
 		if self.miss:
+			print ("Dumping cash!")
 			f=open(self.fname,"wb")
 			pickle.dump(self.c, f)
 			f.flush()
 			f.close()
-			self.miss=False
+			self.miss=0
+			print ("Done.")
 
 	def __del__(self):
 		self.done()
@@ -151,12 +159,14 @@ class CacheMistaker(Mistaker):
 			for v in vals:
 				yield v
 		else:
-			self.miss=True
+			self.miss+=1
 			vals=[]
 			for v in self.gen_sup_gen(w, False):
 				vals.append(v)
 				yield v
 			self.c[w]=vals
+			if self.miss>=self.dump_hits:
+				self.dump()
 
 
 class REMistaker (Mistaker):
@@ -252,19 +262,13 @@ class LDrop_REMistaker(REMistaker):
 	# -лнц
 	regexp="([{d}])нц"
 
-class CA_REMistaker(REMistaker):
-	# -ться - тся , -тск на ца
-	__export__=('repl',)
-	regexp=["(ть[{d}]я)",
-			"(т[{d}]я)",
-			"(т[{d}]к)",
-			]
 
 class GV_REMistaker(REMistaker):
 	#-ого, -его на -ово - ево
 	regexp="[ео]([{d}])о"
 
 class GH_REMistaker(REMistaker):
+	# гк---х
 	regexp="([{d}])к"
 
 class Z_REMistaker(REMistaker):
@@ -274,19 +278,35 @@ class Z_REMistaker(REMistaker):
 			"бе([{d}])"
 			]
 class GG_REMistaker(REMistaker):
-	# сж, зж - жж
+	# сж, зж - --жж
 	regexp="([{d}])ж"
 
 class HH_REMistaker(REMistaker):
+	#
 	consonants="шч"
 	regexp="([{d}])[{c}]"
 
-class CH_REMistaker(REMistaker):
-	regexp="([{d}])ч"
+class CA_REMistaker(REMistaker):
+	# -ться - тся ,  на ца
+	__export__=('repl',)
+	regexp=["(ть[{d}]я)",
+			"(т[{d}]я)",
+				]
 
-class SCH_REMistaker(REMistaker):
-# сч----щ, сч----шщ
-	pass
+class CH_REMistaker(CA_REMistaker):
+	# сч-ш
+	regexp="([{d}]ч)"
+
+
+class SCH_REMistaker(CA_REMistaker):
+	# сч----щ, сч----шщ
+	regexp="(с[{d}])"
+
+class TSK_REMistaker (CA_REMistaker):
+	#нтск--ц "(т[{d}]к)"
+	regexp=["([н][{d}]к)",
+
+	"([д][{d}]к)"]
 
 class Silenter (Mistaker):
 	def __init__(self):
@@ -361,35 +381,28 @@ DEFAULT_GENS=[
 	Z_REMistaker({"з":"с"}),
 	GG_REMistaker({"з":"ж","с":"ж"}),
 	HH_REMistaker({"з":"ш","с":"ш"}),
-	CH_REMistaker({"з":"щ","с":" щ"}),
-	SCH_REMistaker({"з":"щ","с":" щ"}),
-	CA_REMistaker({"с":"с"}, repl="ца"),# {"ться":"ца", "тся":"ца" ,"тск":"ца"}
+	CH_REMistaker({"з":"с","с":["с"]}, repl="щ"),
+	SCH_REMistaker({"ч":"щ"}, repl="щ"),
+	CA_REMistaker({"с":"с"}, repl="ца"),
+	TSK_REMistaker ({"с":"ц"},repl="дцк"),
+	# {"ться":"ца", "тся":"ца" ,"тск":"ца"}
 	REMistaker({"а":"и","я":"и","ы":"и"}),
-
 	SH_REMistaker({"а":"и","о":"е"}),
 	Silenter_REMistaker(d={u'б':u'п', u'г':u'к', u'в':u'ф',
 		    u'д':u'т',u'з':u'c', u'ж':u'ш'}),
 	]
+
+REMOTE_GENS=[
+	CacheMistaker(name="url"),
+	HTTPMistaker(url="http://4seo.biz/tools/12/"),
+]
 #DEFAULT_GENS=[
 #	CacheMistaker(name="url"),
 #	HTTPMistaker(url="http://4seo.biz/tools/12/"),
 #	CA_REMistaker({"с":"с"}, repl="ца"),# {"ться":"ца", "тся":"ца" ,"тск":"ца"}
 #]
 
-def test1():
-	genlist=DEFAULT_GENS
-	#tw=[u"неясность", u"новгород", u"гвоздь", "часы",u"проволока",u"мясной",u"бульон", u"дрозд", u"обклеить", u"здравствуй"]
-	tw=[
-	u"визжать", "расщепить", "счастье", "грузчик","сжег",
-	"грузчик","бездна",
-	"разбежаться","избежать", "безопасность",
-	"мужчина",
-	"твоего",
-	"здесь", "пробывать","мягкий", "бездна", "аспирантка","моего", "явства", "солнце","праздник", "проволока","гиганстский","бояться"
-	]
-	#tw=[u"неясность", u"новгород", u"гвоздь",
-	#	u"бульон",u"окно", u"бесшумный", u"косьба",
-	#	u"часы",,u"мясной",u"безынициативный",		]
+def connect(genlist):
 	gl=genlist[:]
 	start=genlist[0]
 	gl.reverse()
@@ -397,6 +410,26 @@ def test1():
 	for _ in gl[1:]:
 		_.set_sup(f1)
 		f1=_
+	return start
+
+
+def test1():
+	genlist=DEFAULT_GENS
+	#tw=[u"неясность", u"новгород", u"гвоздь", "часы",u"проволока",u"мясной",u"бульон", u"дрозд", u"обклеить", u"здравствуй"]
+	tw=[
+	#u"изчезать","визжать", "расщепить", "счастье", "грузчик","сжег",
+	#"бездна", "гигантский",
+	"голландский",
+	#"разбежаться","избежать", "безопасность",
+	#"мужчина",
+
+	#"здесь", "пробывать","мягкий", "бездна", "аспирантка","моего", "явства", "солнце","праздник", "проволока","гиганстский","бояться"
+	]
+	#tw=[u"неясность", u"новгород", u"гвоздь",
+	#	u"бульон",u"окно", u"бесшумный", u"косьба",
+	#	u"часы",,u"мясной",u"безынициативный",		]
+
+	start=connect(genlist)
 
 	for r in tw:
 		#print (r)
@@ -442,36 +475,64 @@ def test1():
 
 # DEFAULT_GENS=[Louder1()]
 
+def restore_cache():
+	cc=open("save/out_tmp.csv","r")
+	d={}
+	cc.readline()
+	pw=None
+	q=10
+	for l in cc:
+		l=l.strip("\n")
+		if not l:
+			continue
+		ls=l.split('";"')
+		ls=[x.strip('"') for x in ls]
+		w,nw=ls
+		d.setdefault(w,[]).append(nw)
+		#~ print (d)
+		#~ if q<=0:
+			#~ break
+		#~ q-=1
+	oo=open("url.cache","wb")
+	pickle.dump(d,oo)
+	oo.flush()
+	oo.close()
+	return
+
 def load_and_gen(outp=None, genlist=DEFAULT_GENS):
 	if outp == None:
 		outp="out.csv"
 	c,o=to_csv(None, None, outp, noclose=True)
-	gl=genlist
-	start=genlist[0]
-	gl.reverse()
-	f1=gl[0]
-	for _ in gl[1:]:
-		_.set_sup(f1)
-		f1=_
+	start=connect(genlist)
+	rem_start=connect(REMOTE_GENS)
 
 	inp=open("data/ozhegov.dic", "rb")
 	words=pickle.load(inp)
+	print (len(words))
 
 	q=10
+	pack=10
 
 	mst=dict() # {}
 	keys=list(words.keys())
 	keys.sort()
+	k=1
 	for w in keys:
 		if not w: continue
-		se=start.as_set(w)
-		mst[w]=se
+		se=set()
+		se.update(start.as_set(w))
+		se.update(rem_start.as_set(w))
 
 		#print (se)
+		mst[w]=se
 		write_csv(w,se,c)
 		#~ if q<=0:
 			#~ break
 		#~ q-=1
+		if k % pack == 0:
+			print (k, 'of', len(keys))
+		k+=1
+
 
 	mst_o=open("data/mst.dic", "wb")
 	pickle.dump(mst,mst_o)
@@ -482,10 +543,10 @@ def load_and_gen(outp=None, genlist=DEFAULT_GENS):
 
 
 if __name__=="__main__":
-	test1() # test one word
+	#test1() # test one word
 
 	#load_and_gen('word_rus_fon.txt')
-#	load_and_gen()
+	load_and_gen()
 
 
 	quit()
