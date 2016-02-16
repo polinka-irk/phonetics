@@ -134,7 +134,7 @@ class CacheMistaker(Mistaker):
 		try:
 			self.c=pickle.load(open(self.fname,"rb"))
 			print ("Done.")
-		except IOError:
+		except Exception:
 			self.c={}
 			print ("Failed.")
 
@@ -167,6 +167,7 @@ class CacheMistaker(Mistaker):
 			self.c[w]=vals
 			if self.miss>=self.dump_hits:
 				self.dump()
+
 
 
 class REMistaker (Mistaker):
@@ -499,9 +500,9 @@ def restore_cache():
 	oo.close()
 	return
 
-def load_and_gen(outp=None, genlist=DEFAULT_GENS):
+def load_and_gen(outp=None, genlist=DEFAULT_GENS, use_remote=False):
 	if outp == None:
-		outp="out.csv"
+		outp="out-noremote.csv"
 	c,o=to_csv(None, None, outp, noclose=True)
 	start=connect(genlist)
 	rem_start=connect(REMOTE_GENS)
@@ -521,7 +522,8 @@ def load_and_gen(outp=None, genlist=DEFAULT_GENS):
 		if not w: continue
 		se=set()
 		se.update(start.as_set(w))
-		se.update(rem_start.as_set(w))
+		if use_remote:
+			se.update(rem_start.as_set(w))
 
 		#print (se)
 		mst[w]=se
