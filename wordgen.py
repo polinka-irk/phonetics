@@ -231,10 +231,12 @@ class SH_REMistaker (REMistaker):
 
 class OA_REMistaker(REMistaker):
 	# о - о на конце слова , о-е -льон, ньон....- провлка,
-	regexp="[{c}]([{d}])[{c}]([{d}])[{c}]"
+	regexp="о?а?[{c}]([{d}])[{c}]([{d}])[{c}][{v}]?й?$"
 
-class OJ_REMistaker(REMistaker): #НЕ РАБОТАЕТ
-	regexp="([{d}])ва"
+class OJ_REMistaker(REMistaker): # о-ы в -ова, цо - цы, шо-шы (цокотать, шоколад)
+	consonants="цш"
+	regexp=["^[{c}]([{d}])",
+			"([{d}])ват?ь?$"]
 
 class Silenter_REMistaker (REMistaker):
 	consonants="бвгджз"
@@ -257,7 +259,7 @@ class TDrop_REMistaker(REMistaker):
 		"c([{d}])н",
 		"c([{d}])л",
 		"с([{d}])ск",
-		"н([{d}])с?к?",
+		"н([{d}])с?к",
 		]
 class LDrop_REMistaker(REMistaker):
 	# -лнц
@@ -266,7 +268,7 @@ class LDrop_REMistaker(REMistaker):
 
 class GV_REMistaker(REMistaker):
 	#-ого, -его на -ово - ево
-	regexp="[ео]([{d}])о"
+	regexp="[ео]([{d}])о$"
 
 class GH_REMistaker(REMistaker):
 	# гк---х
@@ -305,7 +307,7 @@ class SCH_REMistaker(CA_REMistaker):
 
 class TSK_REMistaker (CA_REMistaker):
 	#нтск--ц "(т[{d}]к)"
-	regexp=["([н][{d}]к)",
+	regexp=["(н[{d}]к)",
 
 	"([д][{d}]к)"]
 
@@ -332,7 +334,7 @@ class Louder1(Silenter): # озвончение глухой перед звон
 		self.silent.remove(u'в')
 		self.end=u'п'
 
-class Louder2(Silenter): # озвончение глухой
+class Louder2(Silenter): # озвончение глухой с ь
 	def __init__(self):
 		Mistaker.__init__(self, {u'пь':u'бь', u'кь':u'гь', u'фь':u'вь', u'ть':u'дь',u'сь':u'зь'})
 		self.loud=self.d.keys()
@@ -385,7 +387,7 @@ DEFAULT_GENS=[
 	CH_REMistaker({"з":"с","с":["с"]}, repl="щ"),
 	SCH_REMistaker({"ч":"щ"}, repl="щ"),
 	CA_REMistaker({"с":"с"}, repl="ца"),
-	TSK_REMistaker ({"с":"ц"},repl="дцк"),
+	TSK_REMistaker ({"с":"ц"},repl="нцк"),
 	# {"ться":"ца", "тся":"ца" ,"тск":"ца"}
 	REMistaker({"а":"и","я":"и","ы":"и"}),
 	SH_REMistaker({"а":"и","о":"е"}),
@@ -420,7 +422,8 @@ def test1():
 	tw=[
 	#u"изчезать","визжать", "расщепить", "счастье", "грузчик","сжег",
 	#"бездна", "гигантский",
-	"голландский",
+	#"голландский","эсперантист","энский", "щеголеватый", "проволока"
+	"цокотать", "шоколад"
 	#"разбежаться","избежать", "безопасность",
 	#"мужчина",
 
