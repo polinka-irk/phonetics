@@ -13,6 +13,8 @@ ENC='cp1251'
 
 _mark=object()
 
+check_re=re.compile("^[а-яА-Я]*$")
+
 class Mistaker(object):
 	"""Generates mistake words from an agument
 	"""
@@ -50,6 +52,13 @@ class Mistaker(object):
 
 	def done(self):
 		pass
+
+	def check_gen(self, w, sq_no=0, sidx=0):
+		if len(w)<3:
+			return
+		if not check_re.match(w):
+			return
+		yield from self.gen(w, sq_no=sq_no, sidx=sidx)
 
 	def gen(self, w, sq_no=0, sidx=0):
 		if sq_no>=self.l:
@@ -92,7 +101,7 @@ class Mistaker(object):
 		"""
 		"""
 		rc=set()
-		for w in self.gen(w):
+		for w in self.check_gen(w):
 			w=w.replace("_","")
 			if debug:
 				rc.add((w,self.__class__.__name__))
@@ -101,7 +110,7 @@ class Mistaker(object):
 		return rc
 
 	def __call__(self, *args, **kwargs):
-		return self.gen(*args, **kwargs)
+		return self.check_gen(*args, **kwargs)
 
 class HTTPMistaker (Mistaker):
 	def __init__(self, url):
@@ -192,6 +201,7 @@ class REMistaker (Mistaker):
 			cregexpr=re.compile(fregexp)
 			self.exprs.append(cregexpr)
 
+
 	def gen(self, w, cregexpr=None):
 		if cregexpr == None:
 			for cregexpr in self.exprs:
@@ -228,10 +238,14 @@ class SH_REMistaker (REMistaker):
 	#
 	consonants="хцчшщж"
 	regexp="[{c}]([{d}])"
+	#gen="SH_REMistaker"
+
 
 class OA_REMistaker(REMistaker):
 	# о - о на конце слова , о-е -льон, ньон....- провлка,
 	regexp="о?а?[{c}]([{d}])[{c}]([{d}])[{c}][{v}]?й?$"
+	#gen="OA_REM)"
+
 
 class OJ_REMistaker(REMistaker): # о-ы в -ова, цо - цы, шо-шы (цокотать, шоколад)
 	consonants="цш"
@@ -344,7 +358,7 @@ class Louder2(Silenter): # озвончение глухой с ь
 
 
 def header(csvf):
-	csvf.writerow(['norm_word','err_word'])
+	csvf.writerow(['norm_word','err_word','gen'])
 
 def write_csv(orig, tab, csvf): # f must be already opened
 
@@ -357,7 +371,7 @@ def to_csv(orig, tab, filename, noclose=False):
 	header(csvf)
 	if orig == None:
 		return csvf,f
-	write_csv(orig, tab, csvf)
+	write_csv(orig, tab, gen,csvf)
 	if not noclose:
 		f.close()
 	return csvf,f
@@ -418,14 +432,16 @@ def connect(genlist):
 
 def test1():
 	genlist=DEFAULT_GENS
+
+	#import pdb; pdb.set_trace()
 	#tw=[u"неясность", u"новгород", u"гвоздь", "часы",u"проволока",u"мясной",u"бульон", u"дрозд", u"обклеить", u"здравствуй"]
 	tw=[
 	#u"изчезать","визжать", "расщепить", "счастье", "грузчик","сжег",
 	#"бездна", "гигантский",
 	#"голландский","эсперантист","энский", "щеголеватый", "проволока"
-	"цокотать", "шоколад"
-	#"разбежаться","избежать", "безопасность",
-	#"мужчина",
+	"цокотать", "шоколад",
+	"бульон",
+	"ра","и", "без","му-",
 
 	#"здесь", "пробывать","мягкий", "бездна", "аспирантка","моего", "явства", "солнце","праздник", "проволока","гиганстский","бояться"
 	]
@@ -436,31 +452,9 @@ def test1():
 	start=connect(genlist)
 
 	for r in tw:
-		#print (r)
 
-	#g=SH_REMistaker({"е":"и"})
-		"""
-		g=OA_REMistaker({"о":["а","_"]})
-		g1=REMistaker({"а":"и","я":"и","ы":"и"})
-		g2=SH_REMistaker({"а":"и","о":"е"})
-		g3=Silenter_REMistaker(d={u'б':u'п', u'г':u'к', u'в':u'ф',
-		    u'д':u'т',u'з':u'c', u'ж':u'ш'})
-		"""
-		#g1=Mistaker(oe_dict,no_end=True)
-		#g=Mistaker(oae_w0)
-
-
-	#for n in g.gen(w):
-	#    print (n)
-
-	#for n in g(w):
-	#	print (n)
-		"""
-		print (g.as_set(r))
-		print (g1.as_set(r))
-		print (g2.as_set(r))
-		"""
 		pprint.pprint (start.as_set(r))
+
 
 	start.done_all()
 
@@ -548,10 +542,10 @@ def load_and_gen(outp=None, genlist=DEFAULT_GENS, use_remote=False):
 
 
 if __name__=="__main__":
-	#test1() # test one word
+	test1() # test one word
 
 	#load_and_gen('word_rus_fon.txt')
-	load_and_gen()
+	#load_and_gen()
 
 
 	quit()
